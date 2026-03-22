@@ -676,6 +676,18 @@ class ResponseGenerator:
 
         return sm, sequences
 
+    def _localize_prompt_checkpoint(self, prompt, rest, checkpoint_position):
+        prompt_len = len(prompt)
+        rest_offset = prompt_len - len(rest)
+        checkpoint_prefix = (
+            checkpoint_position
+            if checkpoint_position > 0
+            else prompt_len + checkpoint_position
+        )
+        if checkpoint_prefix < rest_offset or checkpoint_prefix >= prompt_len:
+            return None
+        return -(prompt_len - checkpoint_prefix)
+
     def _is_batchable(self, args):
         return self.model_provider.is_batchable and args.seed is None
 
