@@ -5,6 +5,8 @@ import contextlib
 import copy
 import functools
 import json
+import math
+import random
 import sys
 import time
 import warnings
@@ -813,7 +815,16 @@ def mtp_generate_step(
                 verify_lp = lps[0]
                 bonus_lp = lps[1]
 
-                if verify_pred.item() == draft_tok.item():
+                # Probabilistic acceptance: accept draft with probability
+                # min(1, p_target(draft) / p_draft(draft)).  At temp=0 both
+                # distributions are peaked, so this degenerates to exact match.
+                draft_tok_id = draft_tok.item()
+                log_accept = (
+                    verify_lp[draft_tok_id] - draft_lp[draft_tok_id]
+                ).item()
+                accept = log_accept >= 0 or math.log(random.random() or 1e-35) < log_accept
+
+                if accept:
                     # Draft accepted — discard rollback snapshots.
                     for c in model_cache:
                         if hasattr(c, "rollback_state"):
