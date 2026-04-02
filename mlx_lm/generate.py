@@ -266,10 +266,14 @@ def wired_limit(model: nn.Module, streams: Optional[List[mx.Stream]] = None):
         try:
             yield
         finally:
-            if streams is not None:
-                for s in streams:
-                    mx.synchronize(s)
-            else:
+            try:
+                if streams is not None:
+                    for s in streams:
+                        mx.synchronize(s)
+                else:
+                    mx.synchronize()
+            except RuntimeError:
+                # Thread-local streams: stream may not exist in this thread
                 mx.synchronize()
             mx.set_wired_limit(old_limit)
 
