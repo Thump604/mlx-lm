@@ -66,10 +66,9 @@ class Model(nn.Module):
         new_weights.pop("embed_vision", None)
 
         if "language_model" in new_weights:
-            # HF language_model maps to Gemma4TextModel directly (no lm_head wrapper),
-            # but our Model wraps it in self.model, so prepend "model." to each key
+            # HF language_model contains keys like model.embed_tokens, model.layers.0, etc.
+            # which already match gemma4_text.Model's structure (self.model = TextModel).
             lm_weights = dict(tree_flatten(new_weights["language_model"]))
-            lm_weights = {"model." + k: v for k, v in lm_weights.items()}
             lm_weights = self.language_model.sanitize(lm_weights)
             new_weights["language_model"] = tree_unflatten(list(lm_weights.items()))
             return dict(tree_flatten(new_weights))
