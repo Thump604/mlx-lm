@@ -331,8 +331,24 @@ def encode_messages(
 
 
 def apply_chat_template(
-    messages, continue_final_message=False, add_generation_prompt=False, **kwargs
+    messages,
+    continue_final_message=False,
+    add_generation_prompt=False,
+    enable_thinking=None,
+    **kwargs,
 ):
+    if enable_thinking is not None and "thinking_mode" not in kwargs:
+        kwargs["thinking_mode"] = "thinking" if enable_thinking else "chat"
+
+    encode_kwargs = {
+        "thinking_mode",
+        "context",
+        "drop_thinking",
+        "add_default_bos_token",
+        "tools",
+    }
+    kwargs = {k: v for k, v in kwargs.items() if k in encode_kwargs}
+
     out = encode_messages(messages, **kwargs)
     if continue_final_message and add_generation_prompt:
         raise ValueError(
@@ -340,6 +356,7 @@ def apply_chat_template(
         )
     if not add_generation_prompt and messages[-1]["role"] == "user":
         out = out.removesuffix("<｜Assistant｜><think>")
+        out = out.removesuffix("<｜Assistant｜></think>")
     if continue_final_message and messages[-1]["role"] == "assistant":
         out = out.removesuffix(eos_token)
     return out
