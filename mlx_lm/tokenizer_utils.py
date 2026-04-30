@@ -575,6 +575,27 @@ def _infer_tool_parser(chat_template):
     return None
 
 
+# Built-in chat templates to use when a model directory ships without a
+# tokenizer chat_template (no `chat_template` in tokenizer_config.json,
+# no chat_template.json/.jinja). Keyed by `model_type` from config.json.
+_DEFAULT_CHAT_TEMPLATE_TYPE_BY_MODEL_TYPE = {
+    "deepseek_v32": "deepseek_v32",
+    "deepseek_v4": "deepseek_v32",
+}
+
+
+def _infer_chat_template_type(model_path) -> Optional[str]:
+    config_file = model_path / "config.json"
+    if not config_file.exists():
+        return None
+    try:
+        with open(config_file, "r", encoding="utf-8") as fid:
+            model_type = json.load(fid).get("model_type")
+    except (OSError, JSONDecodeError):
+        return None
+    return _DEFAULT_CHAT_TEMPLATE_TYPE_BY_MODEL_TYPE.get(model_type)
+
+
 def load(
     model_path,
     tokenizer_config_extra: Optional[Dict[str, Any]] = None,
@@ -638,7 +659,11 @@ def load(
 
     tokenizer_config = tokenizer.init_kwargs
 
-    if chat_template_type := tokenizer_config.get("chat_template_type", False):
+    chat_template_type = tokenizer_config.get("chat_template_type")
+    if chat_template_type is None and tokenizer.chat_template is None:
+        chat_template_type = _infer_chat_template_type(model_path)
+
+    if chat_template_type:
         chat_template = importlib.import_module(
             f"mlx_lm.chat_templates.{chat_template_type}"
         ).apply_chat_template
