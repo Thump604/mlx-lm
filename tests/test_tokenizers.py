@@ -113,6 +113,58 @@ class TestTokenizers(unittest.TestCase):
         self.assertIsNone(tokenizer.think_start_id)
         self.assertIsNone(tokenizer.think_end_id)
 
+    def test_chat_template_falls_back_for_known_model_type(self):
+        class MockTokenizer:
+            eos_token_id = 1
+            chat_template = None
+            init_kwargs = {}
+
+            def get_vocab(self):
+                return {}
+
+        with TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "tokenizer.json").write_text("{}", encoding="utf-8")
+            (tmppath / "config.json").write_text(
+                '{"model_type": "deepseek_v4"}', encoding="utf-8"
+            )
+
+            with patch(
+                "mlx_lm.tokenizer_utils.AutoTokenizer.from_pretrained",
+                return_value=MockTokenizer(),
+            ):
+                tokenizer = load_tokenizer_impl(tmppath)
+
+        from mlx_lm.chat_templates import deepseek_v32
+
+        self.assertTrue(tokenizer.has_chat_template)
+        self.assertIs(tokenizer._chat_template, deepseek_v32.apply_chat_template)
+
+    def test_chat_template_no_fallback_for_unknown_model_type(self):
+        class MockTokenizer:
+            eos_token_id = 1
+            chat_template = None
+            init_kwargs = {}
+
+            def get_vocab(self):
+                return {}
+
+        with TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "tokenizer.json").write_text("{}", encoding="utf-8")
+            (tmppath / "config.json").write_text(
+                '{"model_type": "made_up_model"}', encoding="utf-8"
+            )
+
+            with patch(
+                "mlx_lm.tokenizer_utils.AutoTokenizer.from_pretrained",
+                return_value=MockTokenizer(),
+            ):
+                tokenizer = load_tokenizer_impl(tmppath)
+
+        self.assertFalse(tokenizer.has_chat_template)
+        self.assertIsNone(tokenizer._chat_template)
+
     def test_unknown_model_config_tokenizer_fallback(self):
         class MockTokenizer:
             eos_token_id = 1
